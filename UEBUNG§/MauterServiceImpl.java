@@ -40,7 +40,7 @@ public class MauterServiceImpl implements IMauterhebung {
 		if(!isVehicleRegistered(kennzeichen)){
 			throw new UnkownVehicleException();
 		}
-		if(!isVehicleDataRight(achszahl,kennzeichen)){
+		if(!isVehicleDataRight(achszahl,kennzeichen, mautAbschnitt)){
 			throw new InvalidVehicleDataException();
 		}
 		if(isVehicleInManual(kennzeichen)){
@@ -90,19 +90,40 @@ public class MauterServiceImpl implements IMauterhebung {
 		
 		return check;
 	}
-	public boolean isVehicleDataRight(int Achsen, String Kennzeichen) {
+	public boolean isVehicleDataRight(int Achsen, String Kennzeichen, int abschnitt) {
 		PreparedStatement preparedState = null;
 		ResultSet result = null;
 		boolean check = false;
-		String query = "SELECT COUNT(ACHSEN) AS Anzahl FROM FAHRZEUG WHERE KENNZEICHEN = ? AND ACHSEN = ?";
+		String queryAM = "SELECT COUNT(ACHSEN) AS Anzahl FROM FAHRZEUG WHERE KENNZEICHEN = ? AND ACHSEN = ?";
+		String queryMA = "SELECT M.ACHSZAHL FROM BUCHUNG INNER JOIN MAUTKATEGORIE M ON M.KATEGORIE_ID = BUCHUNG.KATEGORIE_ID WHERE BUCHUNG.KENNZEICHEN = ? AND BUCHUNG.ABSCHNITTS_ID = ? AND BUCHUNG.BEFAHRUNGSDATUM IS NULL";
 		
 		try {
-			preparedState = getConnection().prepareStatement(query);
+			preparedState = getConnection().prepareStatement(queryAM);
 			preparedState.setString(1, Kennzeichen);
 			preparedState.setInt(2, Achsen);
 			result = preparedState.executeQuery();
 			if(result.next()){
-			return result.getInt("Anzahl")>0;
+				if( result.getInt("Anzahl") == 0) {
+					//Wenn Automatische Verfahren Prüfung negativ ist, Manuelle Prüfung durchführen (Achszahl von der Buchungs mautkategorie mit Achszahl prüfen)
+					preparedState = getConnection().prepareStatement(queryMA);
+					preparedState.setString(1, Kennzeichen);
+					preparedState.setInt(2, abschnitt);
+					result = preparedState.executeQuery();
+					if(result.next()){
+						String achszahlDB = result.getString(1);
+						int achszahlDBzahl = Integer.parseInt(achszahlDB.substring(achszahlDB.length()-1));
+						if(achszahlDB.contains(">=")) {
+							return Achsen >= achszahlDBzahl;
+						}
+						if(achszahlDB.contains("=")) {
+							return Achsen == achszahlDBzahl;
+						}
+						
+					}
+					
+			} else {
+				return result.getInt("Anzahl") > 0;
+			}
 			}
 
 		} catch (SQLException e) {
@@ -176,6 +197,8 @@ public class MauterServiceImpl implements IMauterhebung {
 //		
 //	}
 	private void updateCategory(String Kennzeichen) {
+		
+		// TO DO FINISH UPDATE WITH INNER JOIN
 		PreparedStatement preparedState = null;
 		ResultSet result = null;
 		boolean check = false;
