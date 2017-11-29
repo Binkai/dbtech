@@ -48,6 +48,7 @@ public class MauterServiceImpl implements IMauterhebung {
 			if(!isRouteAlreadyCruised(kennzeichen,mautAbschnitt)) {
 				throw new AlreadyCruisedException();
 			}
+			updateCategory(kennzeichen);
 			
 		}
 		if(isVehicleInAutomatic(kennzeichen)){
@@ -116,6 +117,7 @@ public class MauterServiceImpl implements IMauterhebung {
 							return Achsen >= achszahlDBzahl;
 						}
 						if(achszahlDB.contains("=")) {
+							System.out.println("hier1");
 							return Achsen == achszahlDBzahl;
 						}
 						
@@ -129,7 +131,8 @@ public class MauterServiceImpl implements IMauterhebung {
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
-		
+		System.out.println("Hier");
+
 		return check;
 	}
 	public boolean isVehicleInManual(String Kennzeichen){
@@ -200,13 +203,19 @@ public class MauterServiceImpl implements IMauterhebung {
 		
 		// TO DO FINISH UPDATE WITH INNER JOIN
 		PreparedStatement preparedState = null;
-		ResultSet result = null;
 		boolean check = false;
-		String query = "SELECT COUNT(BS.STATUS) AS Anzahl FROM BUCHUNGSTATUS BS INNER JOIN BUCHUNG B ON B.B_ID = BS.B_ID WHERE B.KENNZEICHEN = ? AND B.ABSCHNITTS_ID = ? AND BS.STATUS = 'offen'";
-		
+				//UPDATE BUCHUNGSTATUS SET BUCHUNGSTATUS.STATUS = 'abgeschlossen' WHERE BUCHUNGSTATUS.STATUS = 'offen' AND EXISTS(SELECT * FROM BUCHUNG WHERE BEFAHRUNGSDATUM IS NULL AND KENNZEICHEN = ?) KRASSE QUERY
+		String queryUPSTATUS = "UPDATE BUCHUNG SET BUCHUNG.B_ID = 3 WHERE BUCHUNG.KENNZEICHEN= ? AND BUCHUNG.BEFAHRUNGSDATUM IS NULL AND BUCHUNG.B_ID = 1";
+		String queryUPBEFAHRUNGSDATUM = "UPDATE BUCHUNG  SET BUCHUNG.BEFAHRUNGSDATUM = CURRENT_DATE WHERE BUCHUNG.kennzeichen = ? AND BUCHUNG.BEFAHRUNGSDATUM IS NULL";
 		try {
-			preparedState = getConnection().prepareStatement(query);
+			preparedState = getConnection().prepareStatement(queryUPSTATUS);
 			preparedState.setString(1, Kennzeichen);
+			int anzahl = preparedState.executeUpdate();
+			if(anzahl > 0) {
+				preparedState = getConnection().prepareStatement(queryUPBEFAHRUNGSDATUM);
+				preparedState.setString(1, Kennzeichen);
+				anzahl = preparedState.executeUpdate();
+			}
 
 
 		} catch (SQLException e) {
