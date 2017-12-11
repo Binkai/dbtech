@@ -37,6 +37,7 @@ public class MauterServiceImpl implements IMauterhebung {
 	@Override
 	public float berechneMaut(int mautAbschnitt, int achszahl, String kennzeichen)
 			throws UnkownVehicleException, InvalidVehicleDataException, AlreadyCruisedException {
+		float maut = 0;
 		if(!isVehicleRegistered(kennzeichen)){
 			throw new UnkownVehicleException();
 		}
@@ -53,12 +54,35 @@ public class MauterServiceImpl implements IMauterhebung {
 		}
 		if(isVehicleInAutomatic(kennzeichen)){
 			// Automatic Ablauf
+			int laengeinkm = getMautlaenge(mautAbschnitt)/1000;
+			int mautsatz = getMautsatz(achszahl, kennzeichen)/100;
+			maut = laengeinkm*mautsatz;
+			
 		}
 		
 		
-		return 0;
+		return maut;
 	}
 
+
+	private int getMautsatz(int achszahl, String kennzeichen) {
+		PreparedStatement preparedState = null;
+		ResultSet result = null;
+		int mautsatz = 0;
+		String query = "SELECT M.MAUTSATZ_JE_KM FROM MAUTKATEGORIE M INNER JOIN SCHADSTOFFKLASSE S ON S.SSKL_ID = M.SSKL_ID INNER JOIN FAHRZEUG F ON F.SSKL_ID = S.SSKL_ID WHERE F.KENNZEICHEN = ? AND m.ACHSZAHL LIKE '%= ?'";
+		try {
+			preparedState = getConnection().prepareStatement(query);
+			preparedState.setString(1, kennzeichen);
+			preparedState.setInt(2, achszahl);
+			result = preparedState.executeQuery();
+			if(result.next()){
+				mautsatz = result.getInt(0);
+			}
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return mautsatz;
+	}
 
 	/**
 	 * prueft, ob Fahrzeug vorhanden ist  
@@ -222,5 +246,21 @@ public class MauterServiceImpl implements IMauterhebung {
 			e.printStackTrace();
 		}
 	}
-	
+	private int getMautlaenge(int mautabschnitt){
+		PreparedStatement preparedState = null;
+		ResultSet result = null;
+		String query = "SELECT LAENGE FROM MAUTABSCHNITT WHERE ABSCHNITTS_ID = ?";
+		int laenge = 0;
+		try {
+			preparedState = getConnection().prepareStatement(query);
+			preparedState.setInt(1, mautabschnitt);
+			result = preparedState.executeQuery();
+			if(result.next()){
+				laenge = result.getInt(0);
+			}
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return laenge;
+	}
 }
